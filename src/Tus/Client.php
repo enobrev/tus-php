@@ -274,6 +274,16 @@ class Client extends AbstractTus
     }
 
     /**
+     * Has key.
+     *
+     * @return bool
+     */
+    private function hasKey() : bool
+    {
+        return !empty($this->key);
+    }
+
+    /**
      * Get url.
      *
      * @return string|null
@@ -376,12 +386,17 @@ class Client extends AbstractTus
         $bytes  = $bytes < 0 ? $this->getFileSize() : $bytes;
         $offset = $this->partialOffset < 0 ? 0 : $this->partialOffset;
 
+        if (!$this->hasKey()) {
+            $key = $this->create();
+            return $this->sendPatchRequest($key, $bytes);
+        }
+
         try {
             // Check if this upload exists with HEAD request.
             $offset = $this->sendHeadRequest();
         } catch (FileException | ClientException $e) {
             // Create a new upload.
-            $this->url = $this->create($this->getKey());
+            $this->url = $this->create();
         } catch (ConnectException $e) {
             throw new ConnectionException("Couldn't connect to server.");
         }
@@ -420,14 +435,17 @@ class Client extends AbstractTus
      *
      * @return string
      */
-    public function create(string $key) : string
+    public function create() : string
     {
         $headers = [
             'Upload-Length' => $this->fileSize,
-            'Upload-Key' => $key,
             'Upload-Checksum' => $this->getUploadChecksumHeader(),
             'Upload-Metadata' => $this->getUploadMetadataHeader(),
         ];
+
+        if ($this->hasKey()) {
+            $headers += ['Upload-Key' => $this->getKey()];
+        }
 
         if ($this->isPartial()) {
             $headers += ['Upload-Concat' => 'partial'];
@@ -444,6 +462,12 @@ class Client extends AbstractTus
         }
 
         $uploadLocation = current($response->getHeader('location'));
+
+        if (!$this->hasKey()) {
+            $split    = explode('/', $uploadLocation);
+            $last     = array_pop($split);
+            $this->setKey($last);
+        }
 
         $this->getCache()->set($this->getKey(), [
             'location' => $uploadLocation,
