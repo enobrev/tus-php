@@ -565,6 +565,7 @@ class Client extends AbstractTus
         $headers = [
             'Content-Type' => self::HEADER_CONTENT_TYPE,
             'Content-Length' => \strlen($data),
+            'Upload-Metadata' => $this->getUploadMetadataHeader(),
             'Upload-Checksum' => $this->getUploadChecksumHeader(),
         ];
 
