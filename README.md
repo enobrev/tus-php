@@ -2,7 +2,7 @@
 
 <p align="center">
     <a href="https://packagist.org/packages/ankitpokhrel/tus-php">
-        <img alt="PHP Version" src="https://img.shields.io/badge/php-7.1.3%2B-brightgreen.svg?style=flat-square" />
+        <img alt="PHP Version" src="https://img.shields.io/badge/php-7.2.5%2B-brightgreen.svg?style=flat-square" />
     </a>
     <a href="https://travis-ci.org/ankitpokhrel/tus-php">
         <img alt="Build Status" src="https://img.shields.io/travis/ankitpokhrel/tus-php/master.svg?style=flat-square" />
@@ -65,6 +65,10 @@ to pause, or by accident in case of a network issue or server outage.
 Pull the package via composer.
 ```shell
 $ composer require ankitpokhrel/tus-php
+
+// Use v1 for php7.1, Symfony 3 or 4.
+
+$ composer require ankitpokhrel/tus-php:^1.2
 ```
 
 ### Usage
@@ -78,7 +82,7 @@ This is how a simple server looks like.
 ```php
 // server.php
 
-$server   = new \TusPhp\Tus\Server('redis'); // Leave empty for file based cache
+$server   = new \TusPhp\Tus\Server('redis'); // Either redis, file or apcu. Leave empty for file based cache.
 $response = $server->serve();
 
 $response->send();
@@ -96,6 +100,24 @@ location /files {
     try_files $uri $uri/ /server.php?$query_string;
 }
 ```
+
+A new config option [fastcgi_request_buffering](http://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_request_buffering) is available since nginx 1.7.11.
+When buffering is enabled, the entire request body is read from the client before sending the request to a FastCGI server. Disabling this option might help with timeouts during the upload.
+Furthermore, it helps if you’re running out of disc space on the tmp partition of your system.
+
+If you do not turn off `fastcgi_request_buffering` and you use `fastcgi`, you will not be able to resume uploads because nginx will not give the request back to PHP until the entire file is uploaded.
+
+```nginx
+location ~ \.php$ {
+    # ...
+
+    fastcgi_request_buffering off; # Disable request buffering
+    
+    # ...
+}
+```
+
+A sample nginx configuration can be found [here](docker/server/configs/default.conf).
 
 ###### Apache
 ```apache
@@ -115,8 +137,8 @@ $server->setMaxUploadSize(100000000); // 100 MB in bytes
 Default redis and file configuration for server and client can be found inside `config/server.php` and `config/client.php` respectively.
 To override default config you can simply copy the file to your preferred location and update the parameters. You then need to set the config before doing anything else.
 
-```
-\TusPhp\Config::set(<path to your config>);
+```php
+\TusPhp\Config::set('<path to your config>');
 
 $server = new \TusPhp\Tus\Server('redis');
 ```
@@ -129,7 +151,7 @@ The client can be used for creating, resuming and/or deleting uploads.
 ```php
 $client = new \TusPhp\Tus\Client($baseUrl);
 
-// Optional. If key is not set explicitly, the system will generate an unique uuid.
+// Key is mandatory.
 $key = 'your unique key';
 
 $client->setKey($key)->file('/path/to/file', 'filename.ext');
@@ -200,18 +222,19 @@ upload.start()
 
 #### Cloud Providers
 Many cloud providers implement PHP [streamWrapper](https://www.php.net/manual/en/class.streamwrapper.php) interface that enables us to store and retrieve data from these providers using built-in PHP functions. Since tus-php relies on PHP's built-in filesystem functions, we can easily use it to upload files to the providers like [Amazon S3](https://docs.aws.amazon.com/sdk-for-php/v3/developer-guide/s3-stream-wrapper.html) if their API supports writing in append binary mode. An example implementation to upload files directly to S3 bucket is as follows:
+
 ```php
 // server.php
 // composer require aws/aws-sdk-php
 
 use Aws\S3\S3Client;
-use Aws\Credentials\Credentials;
 use TusPhp\Tus\Server;
+use Aws\Credentials\Credentials;
 
 $awsAccessKey = 'AWS_ACCESS_KEY'; // YOUR AWS ACCESS KEY
 $awsSecretKey = 'AWS_SECRET_KEY'; // YOUR AWS SECRET KEY
-$awsRegion = 'eu-west-1'; // YOUR AWS BUCKET REGION
-$basePath = 's3://your-bucket-name';
+$awsRegion    = 'eu-west-1';      // YOUR AWS BUCKET REGION
+$basePath     = 's3://your-bucket-name';
 
 $s3Client = new S3Client([
     'version' => 'latest',
@@ -237,7 +260,9 @@ exit(0);
 - [x] This Concatenation extension is implemented except that the server is not capable of handling unfinished concatenation.
 
 #### Expiration
-The Server is capable of removing expired but unfinished uploads. You can use the following command manually or in a cron job to remove them.
+The Server is capable of removing expired but unfinished uploads. You can use the following command manually or in a
+cron job to remove them. Note that this command checks your cache storage to find expired uploads. So, make sure
+to run it before the cache is expired, else it will not find all files that needs to be cleared.
 
 ```shell
 $ ./vendor/bin/tus tus:expired --help
@@ -246,7 +271,7 @@ Usage:
   tus:expired [<cache-adapter>] [options]
 
 Arguments:
-  cache-adapter         Cache adapter to use, redis or file. Optional, defaults to file based cache. [default: "file"]
+  cache-adapter         Cache adapter to use: redis, file or apcu [default: "file"]
 
 Options:
   -c, --config=CONFIG   File to get config parameters from.

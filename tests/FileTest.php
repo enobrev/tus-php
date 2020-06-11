@@ -176,11 +176,11 @@ class FileTest extends TestCase
      */
     public function it_sets_upload_metadata()
     {
-        $metadata = array(
+        $metadata = [
             'offset' => 200,
             'fileSize' => 2056,
-            'filePath' => '/path/to/file.pdf'
-        );
+            'filePath' => '/path/to/file.pdf',
+        ];
 
         $this->assertInstanceOf(File::class, $this->file->setUploadMetadata($metadata));
     }
@@ -230,7 +230,7 @@ class FileTest extends TestCase
 
         $resource = $this->file->open($file, 'rb');
 
-        $this->assertInternalType('resource', $resource);
+        $this->assertIsResource($resource);
 
         $this->file->close($resource);
     }
@@ -442,7 +442,7 @@ class FileTest extends TestCase
 
         FileFixture::makeFilesAndFolder($path, $files);
 
-        array_push($files, ['file_path' => "$path/invalid", 'offset' => 0]);
+        $files[] = ['file_path' => "$path/invalid", 'offset' => 0];
 
         $mergedFilePath = $path . '/../file.txt';
 
@@ -470,7 +470,7 @@ class FileTest extends TestCase
 
         $this->file->setFilePath($mergedFilePath)->merge($files);
 
-        $this->assertTrue(file_exists($mergedFilePath));
+        $this->assertFileExists($mergedFilePath);
         $this->assertEquals('123', file_get_contents($mergedFilePath));
         $this->assertEquals(60, $this->file->getOffset());
         $this->assertEquals(3, $this->file->getFileSize());
@@ -497,7 +497,7 @@ class FileTest extends TestCase
 
         $this->file->delete($files, true);
 
-        $this->assertFalse(file_exists($path));
+        $this->assertFileNotExists($path);
     }
 
     /**
@@ -544,11 +544,11 @@ class FileTest extends TestCase
         $this->file->delete($files);
 
         foreach ($files as $file) {
-            $this->assertFalse(file_exists($file));
+            $this->assertFileNotExists($file);
         }
 
-        $this->assertTrue(file_exists($path));
-        $this->assertTrue(is_dir($path));
+        $this->assertFileExists($path);
+        $this->assertDirectoryExists($path);
 
         return $path;
     }
@@ -565,7 +565,7 @@ class FileTest extends TestCase
     {
         $this->file->delete([], true);
 
-        $this->assertTrue(file_exists($path));
+        $this->assertFileExists($path);
     }
 
     /**
@@ -580,7 +580,7 @@ class FileTest extends TestCase
     {
         $this->file->delete(["$path/1"], true);
 
-        $this->assertFalse(file_exists($path));
+        $this->assertFileNotExists($path);
     }
 
     /**

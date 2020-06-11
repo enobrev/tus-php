@@ -2,10 +2,10 @@
 
 namespace TusPhp\Tus;
 
-use Ramsey\Uuid\Uuid;
 use TusPhp\File;
 use Carbon\Carbon;
 use TusPhp\Config;
+use Ramsey\Uuid\Uuid;
 use TusPhp\Exception\TusException;
 use TusPhp\Exception\FileException;
 use GuzzleHttp\Client as GuzzleClient;
@@ -546,7 +546,7 @@ class Client extends AbstractTus
         $key = $this->getKey();
 
         if (false !== strpos($key, self::PARTIAL_UPLOAD_NAME_SEPARATOR)) {
-            list($key, /* $partialKey */) = explode(self::PARTIAL_UPLOAD_NAME_SEPARATOR, $key);
+            [$key, /* $partialKey */] = explode(self::PARTIAL_UPLOAD_NAME_SEPARATOR, $key);
         }
 
         $this->key = $key . self::PARTIAL_UPLOAD_NAME_SEPARATOR . Uuid::uuid4()->toString();
@@ -622,7 +622,8 @@ class Client extends AbstractTus
      */
     protected function handleClientException(ClientException $e)
     {
-        $statusCode = $e->getResponse()->getStatusCode();
+        $response   = $e->getResponse();
+        $statusCode = $response !== null ? $response->getStatusCode() : HttpResponse::HTTP_INTERNAL_SERVER_ERROR;
 
         if (HttpResponse::HTTP_REQUESTED_RANGE_NOT_SATISFIABLE === $statusCode) {
             return new FileException('The uploaded file is corrupt.');
@@ -636,7 +637,7 @@ class Client extends AbstractTus
             return new TusException('Unsupported media types.');
         }
 
-        return new TusException($e->getResponse()->getBody(), $statusCode);
+        return new TusException($response->getBody(), $statusCode);
     }
 
     /**
@@ -658,7 +659,7 @@ class Client extends AbstractTus
 
         $file->close($handle);
 
-        return (string) $data;
+        return $data;
     }
 
     /**

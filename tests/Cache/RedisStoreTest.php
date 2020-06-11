@@ -82,7 +82,7 @@ class RedisStoreTest extends TestCase
         try {
             $redisStore->getRedis()->ping();
         } catch (Exception $e) {
-            $this->assertTrue($e instanceof ConnectionException);
+            $this->assertInstanceOf(ConnectionException::class, $e);
         }
     }
 
@@ -111,6 +111,8 @@ class RedisStoreTest extends TestCase
     {
         $cacheContent = ['expires_at' => 'Sat, 09 Dec 2017 16:25:51 GMT', 'offset' => 100];
 
+        $this->assertNull(static::$redisStore->get('invalid key'));
+
         static::$redisStore->setTtl(1);
 
         $this->assertTrue(static::$redisStore->set($this->checksum, $cacheContent));
@@ -121,7 +123,7 @@ class RedisStoreTest extends TestCase
 
         $this->assertTrue(static::$redisStore->set($checksum, $cacheContent));
 
-        array_push($cacheContent, $string);
+        $cacheContent[] = $string;
 
         $this->assertTrue(static::$redisStore->set($checksum, $string));
         $this->assertEquals($cacheContent, static::$redisStore->get($checksum));
